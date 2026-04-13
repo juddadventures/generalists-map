@@ -345,7 +345,7 @@ let activeRegions = new Set(), activeActivities = new Set();
 let markers = [], panelOpen = false;
 
 // MAP
-const map = L.map('map', { center:[-28.0,153.0], zoom:9, zoomControl:true });
+const map = L.map('map', { center:[-28.5,153.0], zoom:10, zoomControl:true });
 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
   attribution:'&copy; <a href="https://www.esri.com/">Esri</a>',
   maxZoom:17

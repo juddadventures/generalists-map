@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Adventure Map — Generalists Outdoors Club</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --platinum:      #E4E1DD;
+  --columbia-blue: #A7C6DA;
+  --saffron:       #F2C12E;
+  --spring-green:  #04724D;
+  --oxford-blue:   #0C1B33;
+  --sage:          #CDC484;
+  --asparagus:     #7B9A3E;
+  --brunswick:     #084740;
+  --muted:         #8A9E96;
+  --border:        rgba(167,198,218,0.12);
+  --radius:        10px;
+  --font: 'DM Sans', -apple-system, sans-serif;
+}
+
+html, body { height: 100%; font-family: var(--font); background: #111C1A; color: var(--platinum); overflow: hidden; }
+#app { display: flex; flex-direction: column; height: 100vh; }
+
+/* HEADER */
+header {
+  display: flex; align-items: center;
+  padding: 0 16px; height: 52px;
+  background: var(--oxford-blue);
+  border-bottom: 1px solid rgba(167,198,218,0.15);
+  flex-shrink: 0; gap: 12px;
+}
+.logo-wrap { height: 26px; display: flex; align-items: center; flex-shrink: 0; }
+.logo-wrap img { height: 26px; width: auto; }
+.pin-count { margin-left: auto; font-size: 12px; font-weight: 500; color: var(--muted); white-space: nowrap; }
+.pin-count strong { color: var(--saffron); }
+
+/* MAP */
+#map-wrap { flex: 1; position: relative; min-height: 0; }
+#map { width: 100%; height: 100%; }
+
+/* LEAFLET */
+.leaflet-control-zoom { border: none !important; box-shadow: none !important; margin-bottom: 72px !important; }
+.leaflet-control-zoom a {
+  background: var(--oxford-blue) !important; color: var(--platinum) !important;
+  border: 1px solid var(--border) !important;
+  font-size: 15px !important; line-height: 28px !important; width: 28px !important; height: 28px !important;
+}
+.leaflet-control-zoom a:hover { background: var(--brunswick) !important; color: var(--saffron) !important; }
+.leaflet-control-zoom-in  { border-bottom: none !important; border-radius: var(--radius) var(--radius) 0 0 !important; }
+.leaflet-control-zoom-out { border-radius: 0 0 var(--radius) var(--radius) !important; }
+
+.leaflet-popup-content-wrapper {
+  border-radius: var(--radius) !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;
+  border: 1px solid rgba(167,198,218,0.12) !important;
+  padding: 0 !important; overflow: hidden;
+  background: var(--oxford-blue) !important;
+}
+.leaflet-popup-content { margin: 0 !important; width: 250px !important; }
+.leaflet-popup-tip { background: var(--oxford-blue) !important; }
+.leaflet-popup-close-button {
+  top: 7px !important; right: 7px !important;
+  color: rgba(228,225,221,0.55) !important; font-size: 18px !important;
+  z-index: 10; width: 22px !important; height: 22px !important; line-height: 20px !important;
+}
+.leaflet-popup-close-button:hover { color: var(--platinum) !important; }
+
+/* POPUP */
+.popup-img-wrap { width: 100%; height: 128px; overflow: hidden; background: var(--brunswick); }
+.popup-img-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.popup-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 34px; background: var(--brunswick); }
+.popup-body { padding: 12px 14px 14px; background: var(--oxford-blue); }
+.popup-tags { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 8px; }
+.popup-tag { font-size: 9.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; padding: 2px 7px; border-radius: 10px; }
+.popup-tag.activity { background: rgba(167,198,218,0.1); color: var(--columbia-blue); border: 1px solid rgba(167,198,218,0.18); }
+.popup-title { font-size: 15px; font-weight: 600; color: var(--platinum); line-height: 1.3; margin-bottom: 5px; }
+.popup-desc  { font-size: 12px; color: var(--muted); line-height: 1.55; margin-bottom: 12px; }
+.popup-link {
+  display: inline-block; font-size: 12px; font-weight: 600;
+  color: var(--oxford-blue); background: var(--saffron);
+  padding: 5px 14px; border-radius: 20px; text-decoration: none; transition: background 0.15s;
+}
+.popup-link:hover { background: #d4a818; }
+.popup-no-story { font-size: 11.5px; color: rgba(138,158,150,0.55); font-style: italic; }
+
+/* FAB */
+.fab-wrap {
+  position: absolute; bottom: 24px; right: 16px;
+  z-index: 1000; display: flex; flex-direction: column; align-items: flex-end;
+}
+.fab {
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 18px 0 14px; height: 46px;
+  background: var(--oxford-blue);
+  border: 1px solid rgba(167,198,218,0.2);
+  border-radius: 23px; color: var(--platinum);
+  font-family: var(--font); font-size: 13.5px; font-weight: 600;
+  cursor: pointer; position: relative;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.45);
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+.fab:hover { background: var(--brunswick); border-color: rgba(167,198,218,0.35); }
+.fab.open   { background: var(--saffron); color: var(--oxford-blue); border-color: var(--saffron); }
+.fab.open .fab-icon { color: var(--oxford-blue); }
+.fab-icon { width: 17px; height: 17px; flex-shrink: 0; color: var(--columbia-blue); }
+.fab-badge {
+  position: absolute; top: -5px; right: -5px;
+  background: var(--saffron); color: var(--oxford-blue);
+  font-size: 10px; font-weight: 700;
+  width: 18px; height: 18px; border-radius: 50%;
+  display: none; align-items: center; justify-content: center;
+  border: 2px solid #111C1A;
+}
+.fab-badge.visible { display: flex; }
+
+/* FILTER PANEL */
+.filter-panel {
+  position: absolute; bottom: 78px; right: 16px;
+  z-index: 1001; width: 300px;
+  background: var(--oxford-blue);
+  border: 1px solid rgba(167,198,218,0.15);
+  border-radius: 16px;
+  box-shadow: 0 12px 48px rgba(0,0,0,0.55);
+  overflow: hidden;
+  transform: translateY(12px) scale(0.98);
+  opacity: 0; pointer-events: none;
+  transition: transform 0.22s cubic-bezier(0.34,1.4,0.64,1), opacity 0.16s ease;
+  transform-origin: bottom right;
+}
+.filter-panel.open {
+  transform: translateY(0) scale(1);
+  opacity: 1; pointer-events: all;
+}
+.panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.panel-title { font-size: 13px; font-weight: 600; color: var(--platinum); }
+.panel-clear {
+  font-family: var(--font); font-size: 11.5px; font-weight: 500;
+  color: var(--muted); background: none; border: none; cursor: pointer;
+  padding: 2px 0; transition: color 0.15s; display: none;
+}
+.panel-clear.visible { display: block; }
+.panel-clear:hover { color: var(--saffron); }
+.panel-section { padding: 13px 16px; }
+.panel-section + .panel-section { border-top: 1px solid var(--border); }
+.section-label {
+  font-size: 9.5px; font-weight: 600; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 9px;
+}
+.tag-group { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag-btn {
+  font-family: var(--font); font-size: 12px; font-weight: 500;
+  padding: 5px 12px; border-radius: 20px;
+  border: 1px solid rgba(167,198,218,0.18);
+  background: rgba(255,255,255,0.03);
+  color: rgba(228,225,221,0.6);
+  cursor: pointer; transition: all 0.13s ease;
+}
+.tag-btn:hover { border-color: rgba(167,198,218,0.4); color: var(--platinum); background: rgba(167,198,218,0.07); }
+.tag-btn.active { background: var(--saffron); color: var(--oxford-blue); border-color: var(--saffron); font-weight: 600; }
+
+/* NO RESULTS */
+.no-results {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  z-index: 998; background: var(--oxford-blue); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 22px 28px; text-align: center;
+  display: none; pointer-events: none;
+}
+.no-results.visible { display: block; }
+.no-results strong { font-size: 15px; font-weight: 600; color: var(--platinum); display: block; margin-bottom: 5px; }
+.no-results p { font-size: 12.5px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <div class="logo-wrap">
+      <img src="https://images.squarespace-cdn.com/content/v1/66b9939f8309ad3bb59cd88f/fdfc32a8-9b79-42ba-9712-76794426988f/Generalists-Long.png?format=300w" alt="Generalists Outdoors Club">
+    </div>
+    <div class="pin-count" id="pin-count"><strong>—</strong> locations</div>
+  </header>
+
+  <div id="map-wrap">
+    <div id="map"></div>
+
+    <!-- Filter panel -->
+    <div class="filter-panel" id="filter-panel">
+      <div class="panel-header">
+        <span class="panel-title">Filter locations</span>
+        <button class="panel-clear" id="panel-clear" onclick="clearFilters()">Clear all</button>
+      </div>
+      <div class="panel-section">
+        <div class="section-label">Region</div>
+        <div class="tag-group" id="region-filters"></div>
+      </div>
+      <div class="panel-section">
+        <div class="section-label">Activity</div>
+        <div class="tag-group" id="activity-filters"></div>
+      </div>
+    </div>
+
+    <!-- FAB -->
+    <div class="fab-wrap">
+      <button class="fab" id="fab" onclick="togglePanel()">
+        <svg class="fab-icon" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+          <line x1="2" y1="5" x2="16" y2="5"/>
+          <line x1="5" y1="9" x2="13" y2="9"/>
+          <line x1="7" y1="13" x2="11" y2="13"/>
+        </svg>
+        <span id="fab-label">Filter</span>
+        <span class="fab-badge" id="fab-badge">0</span>
+      </button>
+    </div>
+
+    <div class="no-results" id="no-results">
+      <strong>No locations found</strong>
+      <p>Try removing a filter to see more spots.</p>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const REGION_COLORS = {
+  "Northern Rivers": "#04724D",
+  "Gold Coast":      "#A7C6DA",
+  "Moreton Bay":     "#7B9A3E",
+  "Scenic Rim":      "#F2C12E"
+};
+const REGIONS    = ["Northern Rivers","Gold Coast","Moreton Bay","Scenic Rim"];
+const ACTIVITIES = ["Gravel cycling","Trail running","Hiking","Trad climbing","Birdwatching","Mountain biking","Road cycling"];
+const ACT_ICONS  = { "Gravel cycling":"🚵","Trail running":"🏃","Hiking":"🥾","Trad climbing":"🧗","Birdwatching":"🦜","Mountain biking":"🚴","Road cycling":"🚲" };
+
+// ─── CUSTOM PIN ICONS ────────────────────────────────────────────
+// Three ways to use custom images for pins. Priority order: per-location > per-activity > global > default SVG.
+//
+// OPTION A — one icon for all pins:
+//   Set GLOBAL_PIN_ICON to an image URL. Leave null to use default coloured SVG pins.
+//   const GLOBAL_PIN_ICON = "https://images.squarespace-cdn.com/.../mypin.png";
+//
+// OPTION B — different icon per activity type (first activity on each location wins):
+//   Set a URL for each activity below. Null = fall through to global or default.
+//
+// OPTION C — per-location override:
+//   Add pinIconUrl directly to any entry in LOCATIONS:
+//   { id:1, title:"Minyon Falls", ..., pinIconUrl:"https://.../special-pin.png" }
+//
+// Recommended: 32×32px or 40×40px PNG with transparent background.
+// Your Squarespace CDN URLs work fine here.
+// ─────────────────────────────────────────────────────────────────
+
+const GLOBAL_PIN_ICON = null;
+
+const ACTIVITY_PIN_ICONS = {
+  "Gravel cycling":  null,
+  "Trail running":   null,
+  "Hiking":          null,
+  "Trad climbing":   null,
+  "Birdwatching":    null,
+  "Mountain biking": null,
+  "Road cycling":    null
+};
+
+// ─── GOOGLE SHEETS DATA SOURCE ───────────────────────────────────
+// Once you've uploaded your sheet to Google Sheets and made it
+// publicly viewable, paste the Sheet ID here.
+// The ID is the long string in the sheet URL:
+// https://docs.google.com/spreadsheets/d/SHEET_ID_HERE/edit
+//
+// Leave as null to use the fallback data below while you're setting up.
+const SHEET_ID = null;
+
+// FALLBACK DATA — used when SHEET_ID is null or the fetch fails.
+// You can remove these once your sheet is connected.
+const FALLBACK_LOCATIONS = [
+  { title:"Minyon Falls",                  lat:-28.5583,lng:153.4072, region:"Northern Rivers", activities:["Hiking","Trail running"],                description:"A spectacular 100m waterfall in Nightcap National Park, reached via a challenging 8km return trail.",                     storyUrl:"https://www.generalistsoutdoors.com.au/stories", imgUrl:"https://images.unsplash.com/photo-1501854140801-50d01698950b?w=500&q=80", pinIconUrl:"" },
+  { title:"Wollumbin / Mt Warning",         lat:-28.3983,lng:153.2744, region:"Northern Rivers", activities:["Hiking"],                               description:"The first place in Australia to receive sunlight each morning. A demanding 8.8km return summit trail.",                  storyUrl:"https://www.generalistsoutdoors.com.au/stories", imgUrl:"https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=500&q=80", pinIconUrl:"" },
+  { title:"Border Ranges fire trail loop",  lat:-28.4563,lng:153.0789, region:"Northern Rivers", activities:["Gravel cycling","Mountain biking"],      description:"Quiet fire trails through rainforest and pasture with big valley views. Accessible from Kyogle.",                        storyUrl:"https://www.generalistsoutdoors.com.au/stories", imgUrl:"https://images.unsplash.com/photo-1544191696-15693072e0b6?w=500&q=80", pinIconUrl:"" },
+  { title:"Springbrook National Park",      lat:-28.2231,lng:153.2805, region:"Gold Coast",      activities:["Hiking","Birdwatching"],                 description:"Rainforest trails with ancient Antarctic beech trees, canyon views, and exceptional birdlife.",                          storyUrl:"https://www.generalistsoutdoors.com.au/stories", imgUrl:"https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=500&q=80", pinIconUrl:"" },
+  { title:"Tamborine Mountain trails",      lat:-27.9748,lng:153.1953, region:"Gold Coast",      activities:["Trail running","Hiking"],                description:"A network of trails through subtropical rainforest with lookouts across the Gold Coast hinterland.",                    storyUrl:"https://www.generalistsoutdoors.com.au/stories", imgUrl:"https://images.unsplash.com/photo-1501854140801-50d01698950b?w=500&q=80", pinIconUrl:"" },
+  { title:"Laravale & Canungra Valley loop",lat:-28.0163,lng:153.1214, region:"Scenic Rim",      activities:["Road cycling","Gravel cycling"],         description:"Beautiful rolling roads through farmland and forest with a classic mix of climbs and descents.",                        storyUrl:"https://www.generalistsoutdoors.com.au/stories", imgUrl:"https://images.unsplash.com/photo-1517649763962-0c623066013b?w=500&q=80", pinIconUrl:"" },
+  { title:"Main Range National Park",       lat:-28.1397,lng:152.3933, region:"Scenic Rim",      activities:["Hiking","Birdwatching","Trad climbing"], description:"Remote wilderness with high peaks, wildflowers, and some of Australia's best basalt climbing.",                          storyUrl:"https://www.generalistsoutdoors.com.au/stories", imgUrl:"https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=500&q=80", pinIconUrl:"" },
+  { title:"Moreton Island 4WD tracks",      lat:-27.0833,lng:153.4167, region:"Moreton Bay",     activities:["Hiking","Birdwatching"],                 description:"Sand tracks around the world's third largest sand island. Incredible shorebird habitat on the western shores.",              storyUrl:"https://www.generalistsoutdoors.com.au/stories", imgUrl:"https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500&q=80", pinIconUrl:"" },
+  { title:"Bribie Island coastal walk",     lat:-27.0369,lng:153.1556, region:"Moreton Bay",     activities:["Hiking","Birdwatching"],                 description:"Easy flat walking on an island accessible by road. Good for families, great for waders and shorebirds.",                   storyUrl:"https://www.generalistsoutdoors.com.au/stories", imgUrl:"https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500&q=80", pinIconUrl:"" },
+  { title:"Scenic Rim trail network",       lat:-28.0800,lng:152.8100, region:"Scenic Rim",      activities:["Trail running","Hiking"],                description:"Multi-day and day hike options across the spine of the McPherson Range. Some of SEQ's best scenery.",                   storyUrl:"https://www.generalistsoutdoors.com.au/stories", imgUrl:"https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=500&q=80", pinIconUrl:"" },
+  { title:"Richmond Range gravel riding",   lat:-28.7833,lng:152.7500, region:"Northern Rivers", activities:["Gravel cycling"],                        description:"Quiet sealed and gravel roads through cattle country and dry rainforest south of Kyogle.",                                 storyUrl:"https://www.generalistsoutdoors.com.au/stories", imgUrl:"https://images.unsplash.com/photo-1544191696-15693072e0b6?w=500&q=80", pinIconUrl:"" },
+  { title:"Nightcap National Park trails",  lat:-28.5800,lng:153.3600, region:"Northern Rivers", activities:["Hiking","Trail running","Birdwatching"], description:"Old growth rainforest, creek crossings, and the historic Nightcap Track. Exceptional birdwatching.",                       storyUrl:"https://www.generalistsoutdoors.com.au/stories", imgUrl:"https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=500&q=80", pinIconUrl:"" }
+];
+
+// Parses a row from the Google Sheets JSON response into a location object
+function parseSheetRow(row) {
+  const c = row.c || [];
+  const val = (i) => (c[i] && c[i].v != null) ? String(c[i].v).trim() : "";
+  const published = val(0).toUpperCase();
+  if (published !== "TRUE") return null; // skip unpublished rows
+  const activitiesRaw = val(3);
+  const activities = activitiesRaw
+    ? activitiesRaw.split(",").map(a => a.trim()).filter(Boolean)
+    : [];
+  return {
+    title:      val(1),
+    region:     val(2),
+    activities,
+    description:val(4),
+    storyUrl:   val(5),
+    imgUrl:     val(6),
+    lat:        parseFloat(val(7)) || 0,
+    lng:        parseFloat(val(8)) || 0,
+    pinIconUrl: val(9)
+  };
+}
+
+async function loadLocations() {
+  if (!SHEET_ID) return FALLBACK_LOCATIONS;
+  // Google Sheets public JSON feed — no API key needed for publicly shared sheets
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Locations&range=A3:J1000`;
+  try {
+    const res  = await fetch(url);
+    const text = await res.text();
+    // Google wraps the JSON in a callback — strip it
+    const json = JSON.parse(text.replace(/^[^(]*\(/, "").replace(/\);?\s*$/, ""));
+    const rows = (json.table && json.table.rows) || [];
+    return rows.map(parseSheetRow).filter(Boolean);
+  } catch (e) {
+    console.warn("Sheet fetch failed, using fallback data.", e);
+    return FALLBACK_LOCATIONS;
+  }
+}
+
+let activeRegions = new Set(), activeActivities = new Set();
+let markers = [], panelOpen = false;
+
+// MAP
+const map = L.map('map', { center:[-28.0,153.0], zoom:8, zoomControl:true });
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_matter_retina/{z}/{x}/{y}{r}.png', {
+  attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" style="color:#555">OpenStreetMap</a> &copy; <a href="https://carto.com/" style="color:#555">CARTO</a>',
+  subdomains:'abcd', maxZoom:19
+}).addTo(map);
+map.on('click', closePanel);
+
+// PANEL
+function togglePanel() { panelOpen ? closePanel() : openPanel(); }
+function openPanel() {
+  panelOpen = true;
+  document.getElementById('filter-panel').classList.add('open');
+  document.getElementById('fab').classList.add('open');
+}
+function closePanel() {
+  panelOpen = false;
+  document.getElementById('filter-panel').classList.remove('open');
+  document.getElementById('fab').classList.remove('open');
+}
+
+// Close on outside click (not on the panel or FAB itself)
+document.addEventListener('click', e => {
+  if (!panelOpen) return;
+  const panel = document.getElementById('filter-panel');
+  const fab   = document.getElementById('fab');
+  if (!panel.contains(e.target) && !fab.contains(e.target)) closePanel();
+});
+
+// FILTERS
+function buildFilters() {
+  REGIONS.forEach(r => {
+    const b = document.createElement('button');
+    b.className='tag-btn'; b.textContent=r;
+    b.onclick = () => toggleFilter('region', r, b);
+    document.getElementById('region-filters').appendChild(b);
+  });
+  ACTIVITIES.forEach(a => {
+    const b = document.createElement('button');
+    b.className='tag-btn'; b.textContent=a;
+    b.onclick = () => toggleFilter('activity', a, b);
+    document.getElementById('activity-filters').appendChild(b);
+  });
+}
+function toggleFilter(type, value, btn) {
+  const set = type==='region' ? activeRegions : activeActivities;
+  set.has(value) ? (set.delete(value), btn.classList.remove('active'))
+                 : (set.add(value),    btn.classList.add('active'));
+  updateBadge(); renderMarkers();
+}
+function clearFilters() {
+  activeRegions.clear(); activeActivities.clear();
+  document.querySelectorAll('.tag-btn').forEach(b=>b.classList.remove('active'));
+  updateBadge(); renderMarkers();
+}
+function updateBadge() {
+  const n = activeRegions.size + activeActivities.size;
+  const badge = document.getElementById('fab-badge');
+  const clear = document.getElementById('panel-clear');
+  badge.textContent = n;
+  badge.classList.toggle('visible', n>0);
+  clear.classList.toggle('visible', n>0);
+}
+
+// MARKERS
+function makeIcon(loc) {
+  // Priority: per-location pinIconUrl > per-activity > global > default coloured SVG
+  const customUrl = loc.pinIconUrl
+    || ACTIVITY_PIN_ICONS[loc.activities[0]]
+    || GLOBAL_PIN_ICON;
+
+  if (customUrl) {
+    // Custom image icon — centred on the image bottom centre
+    return L.icon({
+      iconUrl: customUrl,
+      iconSize:   [36, 36],
+      iconAnchor: [18, 36],
+      popupAnchor:[0, -38]
+    });
+  }
+
+  // Default: coloured SVG teardrop pin
+  const c = REGION_COLORS[loc.region]||'#04724D';
+  const svg = encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="34" viewBox="0 0 26 34">
+      <path d="M13 0C5.82 0 0 5.82 0 13c0 9.75 13 21 13 21S26 22.75 26 13C26 5.82 20.18 0 13 0z" fill="${c}"/>
+      <circle cx="13" cy="13" r="5" fill="rgba(0,0,0,0.3)"/>
+      <circle cx="13" cy="13" r="3.5" fill="white" opacity="0.9"/>
+    </svg>`
+  );
+  return L.divIcon({ html:`<img src="data:image/svg+xml,${svg}" width="26" height="34">`, className:'', iconSize:[26,34], iconAnchor:[13,34], popupAnchor:[0,-36] });
+}
+function makePopup(loc) {
+  const c = REGION_COLORS[loc.region]||'#04724D';
+  const img = loc.imgUrl
+    ? `<div class="popup-img-wrap"><img src="${loc.imgUrl}" alt="${loc.title}" loading="lazy"></div>`
+    : `<div class="popup-img-wrap"><div class="popup-placeholder">${ACT_ICONS[loc.activities[0]]||'📍'}</div></div>`;
+  const rtag = `<span class="popup-tag" style="background:${c}28;color:${c};border:1px solid ${c}44;font-size:9.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;padding:2px 7px;border-radius:10px;">${loc.region}</span>`;
+  const atags = loc.activities.map(a=>`<span class="popup-tag activity">${ACT_ICONS[a]||''} ${a}</span>`).join('');
+  const cta = loc.storyUrl
+    ? `<a class="popup-link" href="${loc.storyUrl}" target="_blank">Read the story →</a>`
+    : `<span class="popup-no-story">Story coming soon</span>`;
+  return `<div>${img}<div class="popup-body"><div class="popup-tags">${rtag}${atags}</div><div class="popup-title">${loc.title}</div><div class="popup-desc">${loc.description}</div>${cta}</div></div>`;
+}
+
+function renderMarkers() {
+  markers.forEach(m=>map.removeLayer(m)); markers=[];
+  const filtered = LOCATIONS.filter(loc => {
+    const rm = activeRegions.size===0    || activeRegions.has(loc.region);
+    const am = activeActivities.size===0 || loc.activities.some(a=>activeActivities.has(a));
+    return rm && am;
+  });
+  filtered.forEach(loc => {
+    markers.push(L.marker([loc.lat,loc.lng],{icon:makeIcon(loc)})
+      .bindPopup(makePopup(loc),{maxWidth:270,minWidth:250}).addTo(map));
+  });
+  const n=filtered.length, total=LOCATIONS.length;
+  const isF = activeRegions.size>0||activeActivities.size>0;
+  document.getElementById('pin-count').innerHTML = isF ? `<strong>${n}</strong> of ${total} locations` : `<strong>${total}</strong> locations`;
+  document.getElementById('no-results').classList.toggle('visible', n===0);
+}
+
+let LOCATIONS = [];
+
+async function init() {
+  LOCATIONS = await loadLocations();
+  buildFilters();
+  renderMarkers();
+}
+
+init();
+</script>
+</body>
+</html>
